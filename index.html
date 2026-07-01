@@ -778,6 +778,22 @@ function getRisques(events, debut) {
   return r;
 }
 
+function soldeProjeteAvantFacture(py, pm, factureEvent) {
+  let s = getDepart();
+  let y = today.getFullYear(), m = today.getMonth();
+  const factureId = getTxId(py, pm, factureEvent);
+  while (y < py || (y === py && m < pm)) {
+    getEvents(y, m).forEach(ev => { s += ev.amount; });
+    m++; if (m > 11) { m = 0; y++; }
+  }
+  getEvents(py, pm).forEach(ev => {
+    if (ev.day > factureEvent.day) return;
+    if (ev.day === factureEvent.day && getTxId(py, pm, ev) === factureId) return;
+    s += ev.amount;
+  });
+  return s;
+}
+
 function getProchaineProchaineFacture() {
   const now = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   let y = today.getFullYear(), m = today.getMonth();
@@ -859,11 +875,12 @@ function renderDash(y,m,debut,fin,totalIn,totalOut,plusbas,events,risques) {
   const nb = document.getElementById('d-next-bill');
   if (prochaine) {
     const {e, y:py, m:pm} = prochaine;
-    const couverte = soldeActuel >= Math.abs(e.amount);
-    const manque = Math.abs(e.amount) - soldeActuel;
+    const soldeProjete = soldeProjeteAvantFacture(py, pm, e);
+    const couverte = soldeProjete >= Math.abs(e.amount);
+    const manque = Math.abs(e.amount) - soldeProjete;
     const cls = couverte ? 'ok' : 'warn';
     const icon = couverte ? '✅' : '⚠️';
-    const statusTxt = couverte ? `✅ Couverte · solde actuel ${fmtSolde(soldeActuel)}` : `⚠️ Il te manque ${fmtSolde(manque)}`;
+    const statusTxt = couverte ? `✅ Couverte · solde projeté ${fmtSolde(soldeProjete)}` : `⚠️ Il te manque ${fmtSolde(manque)}`;
     nb.innerHTML = `<div class="next-bill-card ${cls}"><div class="next-bill-label">${icon} Prochaine facture</div><div class="next-bill-row"><div class="next-bill-name">${e.desc}</div><div class="next-bill-amount">−${fmt(Math.abs(e.amount))}</div></div><div class="next-bill-date">${JOURS_LONG[(new Date(py,pm,e.day).getDay())]} ${e.day} ${MOIS[pm]} · ${e.recur}</div><div class="next-bill-status">${statusTxt}</div></div>`;
   } else {
     nb.innerHTML = `<div class="next-bill-card empty"><div class="next-bill-label">📭 Prochaine facture</div><div style="font-size:15px;color:var(--text2);">Aucune facture à venir</div></div>`;
